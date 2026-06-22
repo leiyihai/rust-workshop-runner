@@ -8,34 +8,30 @@ use wr::{
 };
 use yansi::Paint;
 
-/// A small CLI to manage test-driven workshops and tutorials in Rust.
+/// 一个用于管理测试驱动 Rust 工作坊和教程的小型 CLI 工具。
 ///
-/// Each exercise comes with a set of associated tests.
-/// A suite of exercises is called "collection".
+/// 每个练习都附带一组相关的测试。
+/// 一组练习称为"合集"。
 ///
-/// Invoking `wr` runs tests for all the exercises you have opened so far in a collection
-/// to check if your solutions are correct.
-/// If everything runs smoothly, you will be asked if you want to move forward to the next exercise.
+/// 运行 `wr` 会对你在合集中已打开的所有练习执行测试，
+/// 以检查你的解答是否正确。
+/// 如果全部通过，程序会询问你是否要进入下一个练习。
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Command {
     #[arg(long)]
-    /// Compile and run tests for all opened exercises, even if they have already succeeded
-    /// in a past run.
+    /// 编译并运行所有已打开练习的测试，即使它们在之前的运行中已经通过。
     pub recheck: bool,
 
     #[arg(long)]
-    /// By default, `wr` will run `cargo build` in quiet mode and it won't show you the logs
-    /// coming from the build process.
-    /// With this flag, those logs (and the progress bar) will be displayed.
+    /// 默认情况下，`wr` 会以静默模式运行 `cargo build`，不显示构建过程的日志。
+    /// 使用此标志后，这些日志（和进度条）将会显示出来。
     pub verbose: bool,
 
     #[arg(long)]
-    /// By default, `wr` will prompt you to open the next exercise if all the currently opened
-    /// exercises passed their tests.
-    /// With this flag, `wr` will automatically open the next exercise if all the currently opened
-    /// exercises passed their tests. It'll then run the tests for the newly opened exercise.
-    /// If they pass, it'll open the next one, and so on.
+    /// 默认情况下，如果所有已打开的练习都通过了测试，`wr` 会询问你是否要打开下一个练习。
+    /// 使用此标志后，`wr` 会在所有已打开练习通过测试后自动打开下一个练习，
+    /// 并运行新打开练习的测试。如果通过，则继续打开下一个，以此类推。
     pub keep_going: bool,
 
     #[command(subcommand)]
@@ -44,34 +40,34 @@ pub struct Command {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Open a specific exercise.
+    /// 打开指定的练习。
     ///
-    /// You can either provide the full name of the chapter and exercise, or only their number.
+    /// 你可以提供章节和练习的完整名称，也可以只提供编号。
     ///
-    /// E.g. `wr open --chapter 01_structured_logging --exercise 00_intro` will open
-    /// the exercise located at `01_structured_logging/00_intro`.
-    /// The same exercise can be opened with `wr open --chapter 1 --exercise 0`.
+    /// 例如 `wr open --chapter 01_structured_logging --exercise 00_intro` 会打开
+    /// 位于 `01_structured_logging/00_intro` 的练习。
+    /// 同一个练习也可以用 `wr open --chapter 1 --exercise 0` 来打开。
     Open {
-        /// The name of the chapter containing the exercise, or its number.
+        /// 包含该练习的章节名称或编号。
         ///
-        /// E.g. `--chapter 01_structured_logging` and `--chapter 1` are equivalent.
+        /// 例如 `--chapter 01_structured_logging` 和 `--chapter 1` 是等价的。
         #[arg(long)]
         chapter: String,
-        /// The name of the exercise, or its number within the chapter it belongs to.
+        /// 练习的名称，或在其所属章节中的编号。
         ///
-        /// E.g. `--exercise 00_intro` and `--exercise 0` are equivalent.
+        /// 例如 `--exercise 00_intro` 和 `--exercise 0` 是等价的。
         #[arg(long)]
         exercise: String,
     },
-    /// Run the tests for the exercise in the current directory.
-    /// It errors if the current directory is not an exercise.
+    /// 运行当前目录中练习的测试。
+    /// 如果当前目录不是一个练习，则会报错。
     Check,
 }
 
 fn main() -> Result<(), anyhow::Error> {
     let command = Command::parse();
-    // Enable ANSI colour support on Windows, if it's supported.
-    // Disable it entirely otherwise.
+    // 在 Windows 上启用 ANSI 颜色支持（如果支持的话）。
+    // 否则完全禁用。
     if !use_ansi_colours() {
         Paint::disable();
     }
@@ -119,7 +115,7 @@ fn main() -> Result<(), anyhow::Error> {
                     chapter_selector.matches(&k.chapter(), k.chapter_number())
                         && exercise_selector.matches(&k.exercise(), k.exercise_number())
                 }).ok_or_else(|| {
-                    anyhow::anyhow!("There is no exercise matching `--chapter {chapter_selector} -- exercise {exercise_selector}`")
+                    anyhow::anyhow!("没有匹配 `--chapter {chapter_selector} -- exercise {exercise_selector}` 的练习")
                 })?.to_owned();
 
                 exercises.open(&exercise)?;
@@ -133,10 +129,10 @@ fn main() -> Result<(), anyhow::Error> {
                         let manifest_folder = k
                             .manifest_folder_path(exercises.exercises_dir())
                             .fs_err_canonicalize()
-                            .expect("Failed to canonicalize manifest folder path");
+                            .expect("无法规范化 manifest 目录路径");
                         manifest_folder == current_dir
                     })
-                    .ok_or_else(|| anyhow::anyhow!("The current directory is not an exercise"))?;
+                    .ok_or_else(|| anyhow::anyhow!("当前目录不是一个练习"))?;
                 if let TestOutcome::Failure { command, details } = verify(
                     &exercises,
                     &definition,
@@ -152,8 +148,7 @@ fn main() -> Result<(), anyhow::Error> {
         return Ok(());
     }
 
-    // If no command was specified, we verify the user's progress on the workshop-runner that have already
-    // been opened.
+    // 如果没有指定子命令，则验证用户已打开练习的进度。
     if let TestOutcome::Failure { command, details } = seek_the_path(
         &mut exercises,
         command.recheck,
@@ -165,12 +160,12 @@ fn main() -> Result<(), anyhow::Error> {
         std::process::exit(1);
     };
 
-    // If all the currently opened workshop-runner passed their checks, we open the next one (if it exists).
+    // 如果所有已打开的练习都通过了检查，则打开下一个（如果存在的话）。
     while let Some(next_exercise) = exercises.next()? {
         if command.keep_going {
             let next_exercise = exercises
                 .open_next()
-                .expect("Failed to open the next exercise");
+                .expect("无法打开下一个练习");
             let exercise_outcome = verify(
                 &exercises,
                 &next_exercise,
@@ -187,25 +182,25 @@ fn main() -> Result<(), anyhow::Error> {
             println!(
                 "\t{}\n",
                 info_style().paint(
-                    "Eternity lies ahead of us, and behind. Your path is not yet finished. 🍂"
+                    "永恒在我们身前，也在我们身后。你的旅程尚未结束。🍂"
                 )
             );
 
             let open_next = input::<String>()
                 .repeat_msg(format!(
-                    "Do you want to open the next exercise, {}? [y/n] ",
+                    "是否要打开下一个练习 {}？[y/n] ",
                     next_exercise
                 ))
-                .err("Please answer either yes or no.")
+                .err("请回答 yes 或 no。")
                 .add_test(|s| parse_bool(s).is_some())
                 .get();
-            // We can safely unwrap here because we have already validated the input.
+            // 这里可以安全地 unwrap，因为输入已经过验证。
             let open_next = parse_bool(&open_next).unwrap();
 
             if open_next {
                 let next_exercise = exercises
                     .open_next()
-                    .expect("Failed to open the next exercise");
+                    .expect("无法打开下一个练习");
                 print_opened_message(&next_exercise, exercises.exercises_dir());
             }
             return Ok(());
@@ -213,16 +208,16 @@ fn main() -> Result<(), anyhow::Error> {
     }
     println!(
         "{}\n\t{}\n",
-        success_style().paint("\n\tThere will be no more tasks."),
-        info_style().paint("What is the sound of one hand clapping (for you)? 🌟")
+        success_style().paint("\n\t已没有更多任务。"),
+        info_style().paint("一只手鼓掌是什么声音（对你而言）？🌟")
     );
     Ok(())
 }
 
 fn parse_bool(s: &str) -> Option<bool> {
     match s.to_ascii_lowercase().as_str() {
-        "yes" | "y" => Some(true),
-        "no" | "n" => Some(false),
+        "yes" | "y" | "是" => Some(true),
+        "no" | "n" | "否" => Some(false),
         _ => None,
     }
 }
@@ -234,7 +229,7 @@ fn seek_the_path(
     skip_build: bool,
     verbose: bool,
 ) -> Result<TestOutcome, anyhow::Error> {
-    println!(" \n\n{}", info_style().dimmed().paint("Running tests...\n"));
+    println!(" \n\n{}", info_style().dimmed().paint("正在运行测试...\n"));
     for exercise in exercises.opened()? {
         let OpenedExercise { definition, solved } = &exercise;
         if !exercise.definition.exists(exercises.exercises_dir()) {
@@ -244,7 +239,7 @@ fn seek_the_path(
         if *solved && !recheck {
             println!(
                 "{}",
-                info_style().paint(format!("\t⏩ {} (Not rechecked)", definition))
+                info_style().paint(format!("\t⏩ {}（跳过复查）", definition))
             );
             continue;
         }
@@ -264,7 +259,7 @@ fn verify(
     verbose: bool,
 ) -> Result<TestOutcome, anyhow::Error> {
     let exercise_config = definition.config(exercises.exercises_dir())?;
-    // Exercise-specific config takes precedence over the global one, if specified.
+    // 练习专属配置优先于全局配置（如果指定了的话）。
     let verification = exercise_config
         .as_ref()
         .map(|c| c.verification.as_slice())
@@ -294,15 +289,14 @@ fn _verify(
     skip_build: bool,
     verbose: bool,
 ) -> TestOutcome {
-    // Tell cargo to return colored output, unless we are on Windows and the terminal
-    // doesn't support it.
+    // 告诉 cargo 输出彩色内容，除非我们在 Windows 上且终端不支持。
     let color_option = if use_ansi_colours() {
         "always"
     } else {
         "never"
     };
 
-    // `cargo build` first
+    // 先 `cargo build`
     if !skip_build {
         let mut cmd = std::process::Command::new("cargo");
         cmd.arg("build");
@@ -320,7 +314,7 @@ fn _verify(
                 .stderr(std::process::Stdio::inherit());
         }
 
-        let output = cmd.output().expect("Failed to build the project");
+        let output = cmd.output().expect("构建项目失败");
 
         if !output.status.success() {
             return TestOutcome::Failure {
@@ -330,7 +324,7 @@ fn _verify(
         }
     }
 
-    // Now we run the verification command.
+    // 然后运行验证命令。
     {
         let mut verification_commands: Vec<_> = verification
             .iter()
@@ -353,15 +347,15 @@ fn _verify(
             verification_commands.push(cmd);
         }
         verification_commands.iter_mut().for_each(|cmd| {
-            // We run verification commands from the exercise's directory.
+            // 从练习所在目录运行验证命令。
             cmd.current_dir(
                 manifest_path
                     .parent()
-                    .expect("Failed to get parent dir for manifest"),
+                    .expect("无法获取 manifest 的父目录"),
             );
         });
         for mut verification_cmd in verification_commands {
-            let error_msg = format!("Failed to run: `{:?}`", verification_cmd);
+            let error_msg = format!("运行失败：`{:?}`", verification_cmd);
             let command_dbg = format!("{:?}", verification_cmd);
             let (status, stderr, stdout) = if verbose {
                 let captured = run_and_capture(verification_cmd).expect(&error_msg);
@@ -392,12 +386,12 @@ enum TestOutcome {
 fn print_opened_message(exercise: &ExerciseDefinition, exercises_dir: &Path) {
     println!(
         "{} {}",
-        next_style().paint("\n\tAhead of you lies"),
+        next_style().paint("\n\t你的前方是"),
         next_style().bold().paint(format!("{exercise}")),
     );
     let relative_path = exercise.manifest_folder_path(exercises_dir);
     let open_msg = format!(
-        "\n\tOpen {:?} in your editor and get started!\n\tRun `wr` again to compile the exercise and execute its tests.",
+        "\n\t在编辑器中打开 {:?} 并开始吧！\n\t再次运行 `wr` 来编译练习并执行测试。",
         relative_path
     );
     println!("{}", next_style().paint(open_msg));
@@ -405,9 +399,9 @@ fn print_opened_message(exercise: &ExerciseDefinition, exercises_dir: &Path) {
 
 fn print_failure_message(command: &str, details: &[u8]) {
     println!(
-        "\n\t{}\n\nFailed to run:\n\t{}\nOutput:\n{}\n",
+        "\n\t{}\n\n运行失败：\n\t{}\n输出：\n{}\n",
         info_style()
-            .paint("Meditate on your approach and return. Mountains are merely mountains.\n\n"),
+            .paint("静思你的方法，然后再回来。山不过是山。\n\n"),
         cargo_style().paint(&command),
         cargo_style().paint(textwrap::indent(
             &String::from_utf8_lossy(details).to_string(),
@@ -432,7 +426,7 @@ pub fn failure_style() -> yansi::Style {
     yansi::Style::new(yansi::Color::Red)
 }
 
-/// Determine if our terminal output should leverage colors via ANSI escape codes.
+/// 判断我们的终端输出是否应该通过 ANSI 转义码使用颜色。
 pub fn use_ansi_colours() -> bool {
     if cfg!(target_os = "windows") {
         Paint::enable_windows_ascii()

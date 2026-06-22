@@ -14,34 +14,33 @@ use std::{
 pub mod tee_helper;
 
 #[derive(serde::Deserialize, Debug)]
-/// The configuration for the current collection of exercises.
+/// 当前练习合集的配置。
 pub struct ExercisesConfig {
-    /// The path to the directory containing the exercises, relative
-    /// to the root of the repository.
+    /// 包含练习的目录路径，相对于仓库根目录。
     #[serde(default = "default_exercise_dir")]
     exercises_dir: PathBuf,
-    /// The command that should be run to verify that the workshop-runner is working as expected.
+    /// 用于验证练习是否正确的命令。
     #[serde(default)]
     verification: Vec<Verification>,
-    /// Don't try to build the project before running the verification command.
+    /// 在运行验证命令之前不尝试构建项目。
     #[serde(default)]
     pub skip_build: bool,
 }
 
 #[derive(serde::Deserialize, Debug)]
-/// The configuration for a specific exercise.
+/// 特定练习的配置。
 pub struct ExerciseConfig {
-    /// The commands that should be run to verify this exercise.
-    /// It overrides the verification command specified in the collection configuration, if any.
+    /// 用于验证此练习的命令。
+    /// 会覆盖合集配置中指定的验证命令（如果有的话）。
     #[serde(default)]
     pub verification: Vec<Verification>,
 }
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Verification {
-    /// The command that should be run to verify that the workshop-runner is working as expected.
+    /// 用于验证练习是否正确的命令。
     pub command: String,
-    /// The arguments that should be passed to the verification command.
+    /// 传递给验证命令的参数。
     #[serde(default)]
     pub args: Vec<String>,
 }
@@ -53,48 +52,47 @@ fn default_exercise_dir() -> PathBuf {
 impl ExercisesConfig {
     pub fn load() -> Result<Self, anyhow::Error> {
         let root_path = get_git_repository_root_dir()
-            .context("Failed to determine the root path of the current `git` repository")?;
+            .context("无法确定当前 git 仓库的根路径")?;
         let exercises_config_path = root_path.join(".wr.toml");
         let exercises_config = fs_err::read_to_string(&exercises_config_path).context(
-            "Failed to read the configuration for the current collection of workshop-runner",
+            "无法读取当前练习合集的配置文件",
         )?;
         let mut exercises_config: ExercisesConfig = toml::from_str(&exercises_config).with_context(|| {
             format!(
-                "Failed to parse the configuration at `{}` for the current collection of workshop-runner",
+                "无法解析当前练习合集的配置文件 `{}`",
                 exercises_config_path.to_string_lossy()
             )
         })?;
-        // The path to the exercises directory is relative to the root of the repository.
+        // 练习目录的路径是相对于仓库根目录的。
         exercises_config.exercises_dir = root_path.join(&exercises_config.exercises_dir);
         Ok(exercises_config)
     }
 
-    /// The path to the directory containing the exercises
-    /// for the current collection of workshop-runner.
+    /// 当前练习合集中包含练习的目录路径。
     pub fn exercises_dir(&self) -> &Path {
         &self.exercises_dir
     }
 
-    /// The command(s) that should be run to verify that exercises are correct.
-    /// If empty, workshop-runner will use `cargo test` as default.
+    /// 用于验证练习是否正确的命令。
+    /// 如果为空，`wr` 会默认使用 `cargo test`。
     pub fn verification(&self) -> &[Verification] {
         &self.verification
     }
 }
 
-/// Retrieve the path to the root directory of the current `git` repository.
+/// 获取当前 git 仓库根目录的路径。
 pub fn get_git_repository_root_dir() -> Result<PathBuf, anyhow::Error> {
     let cmd = Command::new("git")
         .args(["rev-parse", "--show-cdup"])
         .output()
-        .context("Failed to run a `git` command (`git rev-parse --show-cdup`) to determine the root path of the current `git` repository")?;
+        .context("运行 `git` 命令（`git rev-parse --show-cdup`）失败，无法确定当前 git 仓库的根路径")?;
     if cmd.status.success() {
         let path = String::from_utf8(cmd.stdout)
-            .context("The root path of the current `git` repository is not valid UTF-8")?;
+            .context("当前 git 仓库的根路径不是有效的 UTF-8 编码")?;
         Ok(path.trim().into())
     } else {
         Err(anyhow!(
-            "Failed to determine the root path of the current `git` repository"
+            "无法确定当前 git 仓库的根路径"
         ))
     }
 }
@@ -108,7 +106,7 @@ pub struct ExerciseCollection {
 impl ExerciseCollection {
     pub fn new(exercises_dir: PathBuf) -> Result<Self, anyhow::Error> {
         let chapters = read_dir(&exercises_dir)
-            .context("Failed to read the exercises directory")?
+            .context("无法读取练习目录")?
             .filter_map(|entry| {
                 let Ok(entry) = entry else {
                     return None;
@@ -134,10 +132,10 @@ impl ExerciseCollection {
             .collect();
 
         let db_path = exercises_dir.join("progress.db");
-        // Open the database (or create it, if it doesn't exist yet).
+        // 打开数据库（如果不存在则创建）。
         let connection = Connection::open(db_path)
-            .context("Failed to create a SQLite database to track your progress")?;
-        // Make sure all tables are initialised
+            .context("无法创建用于跟踪进度的 SQLite 数据库")?;
+        // 确保所有表都已初始化
         connection
             .execute(
                 "CREATE TABLE IF NOT EXISTS open_exercises (
@@ -148,7 +146,7 @@ impl ExerciseCollection {
             )",
                 [],
             )
-            .context("Failed to initialise our SQLite database to track your progress")?;
+            .context("无法初始化用于跟踪进度的 SQLite 数据库")?;
 
         Ok(Self {
             connection,
@@ -158,7 +156,7 @@ impl ExerciseCollection {
     }
 
     pub fn n_opened(&self) -> Result<usize, anyhow::Error> {
-        let err_msg = "Failed to determine how many workshop-runner have been opened";
+        let err_msg = "无法确定已打开练习的数量";
         let mut stmt = self
             .connection
             .prepare("SELECT COUNT(*) FROM open_exercises")
@@ -166,13 +164,12 @@ impl ExerciseCollection {
         stmt.query_row([], |row| row.get(0)).context(err_msg)
     }
 
-    /// Return an iterator over all the workshop-runner that have been opened.
+    /// 返回一个遍历所有已打开练习的迭代器。
     pub fn opened(&self) -> Result<BTreeSet<OpenedExercise>, anyhow::Error> {
         opened_exercises(&self.connection)
     }
 
-    /// Return the next exercise that should be opened, if we are going through the workshop-runner
-    /// in the expected order.
+    /// 按预期顺序返回下一个应该打开的练习。
     pub fn next(&mut self) -> Result<Option<ExerciseDefinition>, anyhow::Error> {
         let opened = opened_exercises(&self.connection)?
             .into_iter()
@@ -193,77 +190,77 @@ impl ExerciseCollection {
         Ok(None)
     }
 
-    /// Record in the database that an exercise was solved, so that it can be skipped next time.
+    /// 在数据库中记录某个练习已通过，以便下次跳过。
     pub fn mark_as_solved(&self, exercise: &ExerciseDefinition) -> Result<(), anyhow::Error> {
         self.connection
             .execute(
                 "UPDATE open_exercises SET solved = 1 WHERE chapter = ?1 AND exercise = ?2",
                 params![exercise.chapter(), exercise.exercise(),],
             )
-            .context("Failed to mark exercise as solved")?;
+            .context("无法将练习标记为已解决")?;
         Ok(())
     }
 
-    /// Record in the database that an exercise was not solved, so that it won't be skipped next time.
+    /// 在数据库中记录某个练习未通过，以便下次不会跳过。
     pub fn mark_as_unsolved(&self, exercise: &ExerciseDefinition) -> Result<(), anyhow::Error> {
         self.connection
             .execute(
                 "UPDATE open_exercises SET solved = 0 WHERE chapter = ?1 AND exercise = ?2",
                 params![exercise.chapter(), exercise.exercise(),],
             )
-            .context("Failed to mark exercise as unsolved")?;
+            .context("无法将练习标记为未解决")?;
         Ok(())
     }
 
-    /// Open a specific exercise.
+    /// 打开指定的练习。
     pub fn open(&mut self, exercise: &ExerciseDefinition) -> Result<(), anyhow::Error> {
         if !self.exercises.contains(exercise) {
-            bail!("The exercise you are trying to open doesn't exist")
+            bail!("你尝试打开的练习不存在")
         }
         self.connection
             .execute(
                 "INSERT OR IGNORE INTO open_exercises (chapter, exercise, solved) VALUES (?1, ?2, 0)",
                 params![exercise.chapter(), exercise.exercise(),],
             )
-            .context("Failed to open the next exercise")?;
+            .context("无法打开下一个练习")?;
         Ok(())
     }
 
-    /// Close a specific exercise.
+    /// 关闭指定的练习。
     pub fn close(&mut self, exercise: &ExerciseDefinition) -> Result<(), anyhow::Error> {
         self.connection
             .execute(
                 "DELETE FROM open_exercises WHERE chapter = ?1 AND exercise = ?2",
                 params![exercise.chapter(), exercise.exercise(),],
             )
-            .context("Failed to close an exercise")?;
+            .context("无法关闭练习")?;
         Ok(())
     }
 
-    /// Open the next exercise, assuming we are going through the workshop-runner in order.
+    /// 打开下一个练习，假定我们按顺序进行。
     pub fn open_next(&mut self) -> Result<ExerciseDefinition, anyhow::Error> {
         let Some(next) = self.next()? else {
-            bail!("There are no more exercises to open")
+            bail!("没有更多练习可以打开了")
         };
         self.open(&next)?;
         Ok(next)
     }
 
-    /// The directory containing all the workshop chapters and workshop-runner.
+    /// 包含所有练习章节和练习的目录。
     pub fn exercises_dir(&self) -> &Path {
         &self.exercises_dir
     }
 
-    /// Iterate over the workshop-runner in the collection, in the order we expect them to be completed.
-    /// It returns both opened and unopened workshop-runner.
+    /// 按预期完成顺序遍历合集中的练习。
+    /// 返回已打开和未打开的练习。
     pub fn iter(&self) -> impl Iterator<Item = &ExerciseDefinition> {
         self.exercises.iter()
     }
 }
 
-/// Return the set of all workshop-runner that have been opened.
+/// 返回所有已打开练习的集合。
 fn opened_exercises(connection: &Connection) -> Result<BTreeSet<OpenedExercise>, anyhow::Error> {
-    let err_msg = "Failed to retrieve the list of exercises that you have already started";
+    let err_msg = "无法获取已开始练习的列表";
     let mut stmt = connection
         .prepare("SELECT chapter, exercise, solved FROM open_exercises")
         .context(err_msg)?;
@@ -274,7 +271,7 @@ fn opened_exercises(connection: &Connection) -> Result<BTreeSet<OpenedExercise>,
             let solved = row.get_ref_unwrap(2).as_i64().unwrap();
             let solved = if solved == 0 { false } else { true };
             let definition = ExerciseDefinition::new(chapter.as_ref(), exercise.as_ref())
-                .expect("An invalid exercise has been stored in the database");
+                .expect("数据库中存储了无效的练习");
             Ok(OpenedExercise { definition, solved })
         })
         .context(err_msg)?
@@ -339,17 +336,17 @@ impl PartialOrd<OpenedExercise> for ExerciseDefinition {
 impl ExerciseDefinition {
     pub fn new(chapter_dir_name: &OsStr, exercise_dir_name: &OsStr) -> Result<Self, anyhow::Error> {
         fn parse(dir_name: &OsStr, type_: &str) -> Result<(String, u16), anyhow::Error> {
-            // TODO: compile the regex only once.
+            // TODO: 将正则编译为静态变量，只编译一次。
             let re = Regex::new(r"(?P<number>\d{2})_(?P<name>\w+)").unwrap();
 
             let dir_name = dir_name.to_str().ok_or_else(|| {
                 anyhow!(
-                    "The name of a {type_} must be valid UTF-8 text, but {:?} isn't",
+                    "{type_} 的名称必须是有效的 UTF-8 文本，但 {:?} 不是",
                     dir_name
                 )
             })?;
             match re.captures(&dir_name) {
-                None => bail!("Failed to parse `{dir_name:?}` as a {type_} (<NN>_<name>).",),
+                None => bail!("无法将 `{dir_name:?}` 解析为 {type_}（格式应为 <NN>_<name>）。",),
                 Some(s) => {
                     let name = s["name"].into();
                     let number = s["number"].parse().unwrap();
@@ -358,8 +355,8 @@ impl ExerciseDefinition {
             }
         }
 
-        let (name, number) = parse(exercise_dir_name, "exercise")?;
-        let (chapter_name, chapter_number) = parse(chapter_dir_name, "chapter")?;
+        let (name, number) = parse(exercise_dir_name, "练习")?;
+        let (chapter_name, chapter_number) = parse(chapter_dir_name, "章节")?;
 
         Ok(ExerciseDefinition {
             chapter_name,
@@ -369,58 +366,58 @@ impl ExerciseDefinition {
         })
     }
 
-    /// The path to the `Cargo.toml` file of the current exercise.
+    /// 当前练习的 `Cargo.toml` 文件路径。
     pub fn manifest_path(&self, exercises_dir: &Path) -> PathBuf {
         self.manifest_folder_path(exercises_dir).join("Cargo.toml")
     }
 
-    /// The path to the folder containing the `Cargo.toml` file for the current exercise.
+    /// 包含当前练习 `Cargo.toml` 文件的目录路径。
     pub fn manifest_folder_path(&self, exercises_dir: &Path) -> PathBuf {
         exercises_dir.join(self.chapter()).join(self.exercise())
     }
 
-    /// The configuration for the current exercise, if any.
+    /// 当前练习的配置（如果有的话）。
     pub fn config(&self, exercises_dir: &Path) -> Result<Option<ExerciseConfig>, anyhow::Error> {
         let exercise_config = self.manifest_folder_path(exercises_dir).join(".wr.toml");
         if !exercise_config.exists() {
             return Ok(None);
         }
         let exercise_config = fs_err::read_to_string(&exercise_config).context(format!(
-            "Failed to read the configuration for the exercise `{}`",
+            "无法读取练习 `{}` 的配置文件",
             self.exercise()
         ))?;
         let exercise_config: ExerciseConfig =
             toml::from_str(&exercise_config).with_context(|| {
                 format!(
-                    "Failed to parse the configuration for the exercise `{}`",
+                    "无法解析练习 `{}` 的配置文件",
                     self.exercise()
                 )
             })?;
         Ok(Some(exercise_config))
     }
 
-    /// The number+name of the chapter that contains this exercise.
+    /// 包含此练习的章节的编号+名称。
     pub fn chapter(&self) -> String {
         format!("{:02}_{}", self.chapter_number, self.chapter_name)
     }
 
-    /// The number+name of this exercise.
+    /// 此练习的编号+名称。
     pub fn exercise(&self) -> String {
         format!("{:02}_{}", self.number, self.name)
     }
 
-    /// The number of this exercise.
+    /// 此练习的编号。
     pub fn exercise_number(&self) -> u16 {
         self.number
     }
 
-    /// The number of the chapter that contains this exercise.
+    /// 包含此练习的章节编号。
     pub fn chapter_number(&self) -> u16 {
         self.chapter_number
     }
 
-    /// Verify that the exercise exists.
-    /// It may have been removed from the repository after an update to the current course.
+    /// 验证练习是否存在。
+    /// 可能在课程更新后已从仓库中移除。
     pub fn exists(&self, exercises_dir: &Path) -> bool {
         self.manifest_path(exercises_dir).exists()
     }
